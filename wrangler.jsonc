@@ -1,19 +1,41 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "react-router-app",
+  "name": "chatting-app-2",
   "compatibility_date": "2025-04-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./workers/app.ts",
   "vars": {
-    "VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare",
-    "BETTER_AUTH_SECRET": "your-secret-key-here",
-    "BETTER_AUTH_URL": "http://localhost:8787"
+    "BETTER_AUTH_URL": "https://chatting-app-2.henrychu04.workers.dev"
+  },
+  "env": {
+    "preview": {
+      "vars": {
+        "BETTER_AUTH_URL": "http://localhost:4173"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "chatting-app-production",
+          "database_id": "7f6dfa6d-d22c-4e2a-8289-f2cea8776643",
+          "migrations_dir": "drizzle"
+        }
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "CHAT_ROOM",
+            "class_name": "ChatRoom",
+            "script_name": "chatting-app-2"
+          }
+        ]
+      }
+    }
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "your-database-name",
-      "database_id": "your-database-id",
+      "database_name": "chatting-app-production",
+      "database_id": "7f6dfa6d-d22c-4e2a-8289-f2cea8776643",
       "migrations_dir": "drizzle"
     }
   ],
@@ -21,9 +43,14 @@
     "bindings": [
       {
         "name": "CHAT_ROOM",
-        "class_name": "ChatRoom",
-        "script_name": "react-router-app"
+        "class_name": "ChatRoom"
       }
     ]
-  }
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ChatRoom"]
+    }
+  ]
 }

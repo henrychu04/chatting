@@ -4,10 +4,17 @@ import type { AppRouter } from '../../server/routers';
 
 function getBaseUrl() {
   if (typeof window !== 'undefined') {
-    // Client-side should use relative URL
+    // Client-side: use relative URL
     return '';
   }
-  // SSR should use localhost or production URL
+
+  // Server-side: determine URL based on environment
+  if (process.env.NODE_ENV === 'production') {
+    // In production, use the actual production URL
+    return process.env.BETTER_AUTH_URL || 'https://chatting-app-2.henrychu04.workers.dev';
+  }
+
+  // Development: use local dev server
   return 'http://localhost:8787';
 }
 

@@ -5,8 +5,11 @@
 # React Router
 /.react-router/
 /build/
+/dist/
 
 # Cloudflare
 .mf
 .wrangler
-.env
+.dev.vars
+.dev.vars.*
+.env.*

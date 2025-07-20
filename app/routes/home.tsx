@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ChatRoom } from '../components/ChatRoom';
 import { useSession, signOut } from '../../lib/auth/better-auth-client';
@@ -14,7 +14,8 @@ export function meta() {
 
 export default function Home() {
   const navigate = useNavigate();
-  const { data: sessionData, isPending } = useSession();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { data: sessionData, isPending, refetch } = useSession();
 
   useEffect(() => {
     console.log('Home page - isPending:', isPending, 'sessionData:', sessionData);
@@ -69,12 +70,51 @@ export default function Home() {
             <div className="flex items-center gap-3 sm:gap-4">
               <button
                 onClick={async () => {
-                  await signOut();
-                  navigate('/login');
+                  console.log('Sign out button clicked');
+                  setIsLoggingOut(true);
+                  try {
+                    console.log('Attempting to sign out...');
+                    const result = await signOut();
+                    console.log('Sign out result:', result);
+
+                    // Clear any local storage items that might contain auth data
+                    if (typeof window !== 'undefined') {
+                      localStorage.clear();
+                      sessionStorage.clear();
+
+                      // Clear cookies manually as a fallback
+                      document.cookie.split(';').forEach((c) => {
+                        const eqPos = c.indexOf('=');
+                        const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+                        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+                      });
+                    }
+
+                    // Refetch session to clear local state
+                    await refetch();
+                    console.log('Session refetched after logout');
+
+                    // Navigate to login page
+                    navigate('/login');
+                  } catch (error) {
+                    console.error('Sign out error:', error);
+                    console.error('Error details:', error);
+
+                    // Even if sign out fails, clear local data and redirect
+                    if (typeof window !== 'undefined') {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                    }
+                    await refetch();
+                    navigate('/login');
+                  } finally {
+                    setIsLoggingOut(false);
+                  }
                 }}
-                className="px-3 py-2 sm:px-4 text-xs sm:text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:ring-2 focus:ring-gray-300 transition-all duration-200"
+                disabled={isLoggingOut}
+                className="px-3 py-2 sm:px-4 text-xs sm:text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:ring-2 focus:ring-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sign Out
+                {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
               </button>
             </div>
           </div>

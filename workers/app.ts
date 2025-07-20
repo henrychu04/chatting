@@ -5,7 +5,6 @@ import * as schema from '../database/schema';
 import { createTRPCContext } from '../server/trpc';
 import { appRouter } from '../server/routers';
 import { createAuth } from '../lib/auth/better-auth';
-import { ChatRoom } from './chat-room';
 
 declare module 'react-router' {
   export interface AppLoadContext {
@@ -40,7 +39,7 @@ export default {
     // Initialize better-auth
     const auth = createAuth({
       DB: env.DB,
-      BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET || 'fallback-secret-for-development',
+      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || 'fallback-secret-for-development',
       BETTER_AUTH_URL: env.BETTER_AUTH_URL,
     });
 

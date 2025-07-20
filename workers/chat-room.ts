@@ -1,12 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
 
-interface WebSocketSession {
-  webSocket: WebSocket;
-  userId?: string;
-  username?: string;
-  joinedAt: Date;
-}
-
 interface ChatMessage {
   id: string;
   userId: string;
@@ -17,7 +10,6 @@ interface ChatMessage {
 }
 
 export class ChatRoom extends DurableObject {
-  private sessions: Map<WebSocket, WebSocketSession> = new Map();
   private messageHistory: ChatMessage[] = [];
   private maxHistorySize = 100;
 
@@ -49,23 +41,16 @@ export class ChatRoom extends DurableObject {
     const webSocketPair = new WebSocketPair();
     const [client, server] = Object.values(webSocketPair);
 
-    // Accept the WebSocket connection
-    server.accept();
-
-    // Get user info from query params or headers
+    // Get user info from query params
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId') || 'anonymous';
     const username = url.searchParams.get('username') || `User${Math.floor(Math.random() * 1000)}`;
 
-    // Create session
-    const session: WebSocketSession = {
-      webSocket: server,
-      userId,
-      username,
-      joinedAt: new Date(),
-    };
+    // Accept the WebSocket with hibernation using tags for metadata
+    // Tags format: ["userId:value", "username:value", "joinedAt:timestamp"]
+    const tags = [`userId:${userId}`, `username:${username}`, `joinedAt:${Date.now()}`];
 
-    this.sessions.set(server, session);
+    this.ctx.acceptWebSocket(server, tags);
 
     // Send welcome message and recent history
     this.sendToSocket(server, {
@@ -95,41 +80,29 @@ export class ChatRoom extends DurableObject {
     this.broadcastMessage(joinMessage, server);
     this.addToHistory(joinMessage);
 
-    // Handle incoming messages
-    server.addEventListener('message', (event) => {
-      this.handleMessage(server, event.data);
-    });
-
-    // Handle connection close
-    server.addEventListener('close', () => {
-      this.handleDisconnect(server);
-    });
-
-    server.addEventListener('error', (error) => {
-      console.error('WebSocket error:', error);
-      this.handleDisconnect(server);
-    });
-
     return new Response(null, {
       status: 101,
       webSocket: client,
     });
   }
 
-  private handleMessage(webSocket: WebSocket, data: string) {
+  // WebSocket Hibernation handlers
+  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     try {
-      const session = this.sessions.get(webSocket);
-      if (!session) return;
+      const data = JSON.parse(message as string);
+      const tags = this.ctx.getTags(ws);
 
-      const parsedData = JSON.parse(data);
+      // Parse user info from tags
+      const userId = this.getTagValue(tags, 'userId') || 'anonymous';
+      const username = this.getTagValue(tags, 'username') || 'Anonymous';
 
-      switch (parsedData.type) {
+      switch (data.type) {
         case 'message':
           const chatMessage: ChatMessage = {
             id: crypto.randomUUID(),
-            userId: session.userId!,
-            username: session.username!,
-            message: parsedData.message,
+            userId,
+            username,
+            message: data.message,
             timestamp: new Date().toISOString(),
             type: 'message',
           };
@@ -139,62 +112,72 @@ export class ChatRoom extends DurableObject {
           break;
 
         case 'ping':
-          this.sendToSocket(webSocket, { type: 'pong' });
+          this.sendToSocket(ws, { type: 'pong' });
           break;
 
         default:
-          console.log('Unknown message type:', parsedData.type);
+          console.log('Unknown message type:', data.type);
       }
     } catch (error) {
       console.error('Error handling message:', error);
-      this.sendToSocket(webSocket, {
+      this.sendToSocket(ws, {
         type: 'error',
         message: 'Invalid message format',
       });
     }
   }
 
-  private handleDisconnect(webSocket: WebSocket) {
-    const session = this.sessions.get(webSocket);
-    if (session) {
-      // Broadcast user leave
-      const leaveMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        userId: session.userId!,
-        username: session.username!,
-        message: `${session.username} left the chat`,
-        timestamp: new Date().toISOString(),
-        type: 'leave',
-      };
+  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
+    const tags = this.ctx.getTags(ws);
+    const userId = this.getTagValue(tags, 'userId') || 'anonymous';
+    const username = this.getTagValue(tags, 'username') || 'Anonymous';
 
-      this.broadcastMessage(leaveMessage, webSocket);
-      this.addToHistory(leaveMessage);
-      this.sessions.delete(webSocket);
-    }
+    // Broadcast user leave
+    const leaveMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      userId,
+      username,
+      message: `${username} left the chat`,
+      timestamp: new Date().toISOString(),
+      type: 'leave',
+    };
+
+    this.broadcastMessage(leaveMessage, ws);
+    this.addToHistory(leaveMessage);
+  }
+
+  async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+    console.error('WebSocket error:', error);
+    // Handle WebSocket errors if needed
+  }
+
+  // Helper methods
+  private getTagValue(tags: string[], key: string): string | null {
+    const tag = tags.find((tag) => tag.startsWith(`${key}:`));
+    return tag ? tag.split(':', 2)[1] : null;
   }
 
   private broadcastMessage(message: ChatMessage, excludeSocket?: WebSocket) {
     const messageStr = JSON.stringify(message);
+    const webSockets = this.ctx.getWebSockets();
 
-    for (const [socket, session] of this.sessions) {
-      if (socket !== excludeSocket && socket.readyState === WebSocket.OPEN) {
+    for (const socket of webSockets) {
+      if (socket !== excludeSocket) {
         try {
           socket.send(messageStr);
         } catch (error) {
           console.error('Error sending message to socket:', error);
-          this.sessions.delete(socket);
+          // The hibernation API handles cleanup automatically
         }
       }
     }
   }
 
   private sendToSocket(webSocket: WebSocket, data: any) {
-    if (webSocket.readyState === WebSocket.OPEN) {
-      try {
-        webSocket.send(JSON.stringify(data));
-      } catch (error) {
-        console.error('Error sending to socket:', error);
-      }
+    try {
+      webSocket.send(JSON.stringify(data));
+    } catch (error) {
+      console.error('Error sending to socket:', error);
     }
   }
 
@@ -208,13 +191,19 @@ export class ChatRoom extends DurableObject {
   }
 
   private async getRoomInfo(): Promise<Response> {
+    const webSockets = this.ctx.getWebSockets();
+    const users = webSockets.map((ws) => {
+      const tags = this.ctx.getTags(ws);
+      return {
+        userId: this.getTagValue(tags, 'userId'),
+        username: this.getTagValue(tags, 'username'),
+        joinedAt: new Date(parseInt(this.getTagValue(tags, 'joinedAt') || '0')),
+      };
+    });
+
     const info = {
-      activeConnections: this.sessions.size,
-      users: Array.from(this.sessions.values()).map((session) => ({
-        userId: session.userId,
-        username: session.username,
-        joinedAt: session.joinedAt,
-      })),
+      activeConnections: webSockets.length,
+      users,
       messageCount: this.messageHistory.length,
     };
 

@@ -13,15 +13,9 @@ export function AuthForm() {
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const { data: sessionData, isPending, error: sessionError, refetch } = useSession();
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   // Redirect to home page if user is logged in
   useEffect(() => {
@@ -95,28 +89,6 @@ export function AuthForm() {
     setSuccess('');
     setFormData({ name: '', email: '', password: '' });
   };
-
-  const handleLogout = async () => {
-    console.log('Logout button clicked');
-    setIsLoggingOut(true);
-    try {
-      console.log('Attempting to sign out...');
-      const result = await signOut();
-      console.log('Sign out result:', result);
-      setFormData({ name: '', email: '', password: '' });
-      refetch();
-      console.log('Session refetched after logout');
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
-  if (!isClient) {
-    return <div className="text-center text-gray-400">Loading...</div>;
-  }
 
   if (isPending) {
     return <div className="text-center text-gray-400">Loading...</div>;

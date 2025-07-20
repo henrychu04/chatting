@@ -72,11 +72,11 @@ A modern, production-ready real-time chat application built with React Router v7
    npm run dev
    ```
 
-🎉 **Your chat app is now running at `http://localhost:8787`**
+🎉 **Your chat app is now running at `http://localhost:5173`**
 
 ### First Time Setup
 
-1. **Register an account** at `http://localhost:8787/login`
+1. **Register an account** at `http://localhost:5173/login`
 2. **Start chatting** - The app supports both registered and anonymous users
 3. **Open multiple tabs** to test real-time messaging
 
@@ -109,48 +109,95 @@ A modern, production-ready real-time chat application built with React Router v7
 
 ## 🚀 Production Deployment
 
-### 1. Environment Setup
+### Prerequisites
 
-Update your `.env` file for production:
+- **Cloudflare Account** with Workers plan
+- **Domain** (optional, can use workers.dev subdomain)
+- **Git repository** for your project
+
+### Step 1: Environment Configuration
+
+1. **Update `wrangler.jsonc` with your domain:**
+
+   ```json
+   {
+     "vars": {
+       "BETTER_AUTH_URL": "https://your-actual-domain.com"
+     }
+   }
+   ```
+
+2. **Create production D1 database:**
+
+   ```bash
+   npx wrangler d1 create your-chat-app-production
+   ```
+
+3. **Update database ID in `wrangler.jsonc`:**
+   ```json
+   {
+     "d1_databases": [
+       {
+         "binding": "DB",
+         "database_name": "your-chat-app-production",
+         "database_id": "your-actual-database-id"
+       }
+     ]
+   }
+   ```
+
+### Step 2: Set Production Secrets
 
 ```bash
-# Required for production
-BETTER_AUTH_SECRET="your-secure-32-char-hex-key"
-BETTER_AUTH_URL="https://your-domain.com"
-NODE_ENV="production"
+# Set a strong auth secret (generate with: openssl rand -hex 32)
+npx wrangler secret put BETTER_AUTH_SECRET
 
-# Get these from Cloudflare Dashboard
-CLOUDFLARE_ACCOUNT_ID="your-account-id"
-CLOUDFLARE_API_TOKEN="your-api-token"
+# Set your production URL
+npx wrangler secret put BETTER_AUTH_URL
+# Enter: https://your-domain.com
 ```
 
-### 2. Database Setup
+### Step 3: Database Migration
 
 ```bash
-# Create production database
-npx wrangler d1 create your-chat-app-production
-
-# Update wrangler.jsonc with the database ID
-# Run migrations to production
-npx wrangler d1 migrations apply your-chat-app-production --remote
+# Apply migrations to production database
+npx wrangler d1 migrations apply --remote DB
 ```
 
-### 3. Deploy
+### Step 4: Deploy
 
 ```bash
 # Build and deploy to Cloudflare Workers
 npm run build
-npm run deploy
-
-# Your app will be live at https://your-worker.your-subdomain.workers.dev
+npx wrangler deploy
 ```
 
-### 4. Custom Domain (Optional)
+### Step 5: Custom Domain (Optional)
 
-1. Add your domain to Cloudflare
-2. Set up DNS records
-3. Configure SSL/TLS encryption
-4. Update `BETTER_AUTH_URL` to your custom domain
+If using a custom domain:
+
+1. **Add domain to Cloudflare:**
+
+   - Go to Cloudflare Dashboard
+   - Add your domain and configure DNS
+
+2. **Set up Workers route:**
+
+   - Workers & Pages → your-worker → Settings → Triggers
+   - Add Custom Domain: `your-domain.com`
+
+3. **Update configuration:**
+   - Update `BETTER_AUTH_URL` in wrangler.jsonc
+   - Redeploy: `npm run deploy`
+
+### Production Environment Variables
+
+| Variable             | Development             | Production                |
+| -------------------- | ----------------------- | ------------------------- |
+| `BETTER_AUTH_SECRET` | `.env` file             | Wrangler secret           |
+| `BETTER_AUTH_URL`    | `http://localhost:5173` | `https://your-domain.com` |
+| `NODE_ENV`           | `development`           | `production` (auto-set)   |
+| Database             | Local D1                | Remote D1 binding         |
 
 ## 🔧 Development
 
