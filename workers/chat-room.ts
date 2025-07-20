@@ -161,10 +161,20 @@ export class ChatRoom extends DurableObject {
 
   private getOnlineUsers(): string[] {
     const webSockets = this.ctx.getWebSockets();
-    return webSockets.map((ws) => {
+    console.log('Total WebSocket connections:', webSockets.length);
+
+    const usernames = webSockets.map((ws) => {
       const tags = this.ctx.getTags(ws);
-      return this.getTagValue(tags, 'username') || 'Anonymous';
+      const username = this.getTagValue(tags, 'username') || 'Anonymous';
+      console.log('Found user:', username);
+      return username;
     });
+
+    // Deduplicate usernames - one user might have multiple connections
+    const uniqueUsers = [...new Set(usernames)];
+    console.log('Unique users:', uniqueUsers);
+
+    return uniqueUsers;
   }
 
   private broadcastMessage(message: ChatMessage, excludeSocket?: WebSocket) {
