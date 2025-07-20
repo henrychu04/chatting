@@ -6,14 +6,17 @@
     "app/**/.server/**/*",
     "app/**/.client/**/*",
     "database/**/*",
+    "server/**/*",
+    "lib/**/*",
     "workers/**/*",
-    "worker-configuration.d.ts"
+    "worker-configuration.d.ts",
+    "app/components/components/**/*"
   ],
   "compilerOptions": {
     "composite": true,
     "strict": true,
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": [ "node", "vite/client"],
+    "types": ["node", "vite/client"],
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
@@ -22,7 +25,9 @@
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
       "~/database/*": ["./database/*"],
-      "~/*": ["./app/*"]
+      "~/*": ["./app/*"],
+      "@/components/*": ["./app/components/*"],
+      "@/lib/*": ["./app/lib/*"]
     },
     "esModuleInterop": true,
     "resolveJsonModule": true
