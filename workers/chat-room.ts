@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
+import { sanitizeChatMessage, sanitizeUsername, containsSuspiciousContent } from '../lib/sanitizer';
 
 interface ChatMessage {
   id: string;
@@ -44,7 +45,8 @@ export class ChatRoom extends DurableObject {
     // Get user info from query params
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId') || 'anonymous';
-    const username = url.searchParams.get('username') || `User${Math.floor(Math.random() * 1000)}`;
+    const rawUsername = url.searchParams.get('username') || `User${Math.floor(Math.random() * 1000)}`;
+    const username = sanitizeUsername(rawUsername); // Sanitize username
 
     // Accept the WebSocket with hibernation using tags for metadata
     // Tags format: ["userId:value", "username:value", "joinedAt:timestamp"]
@@ -100,11 +102,30 @@ export class ChatRoom extends DurableObject {
 
       switch (data.type) {
         case 'message':
+          // Sanitize message content
+          const rawMessage = data.message || '';
+
+          // Check for suspicious content
+          if (containsSuspiciousContent(rawMessage)) {
+            this.sendToSocket(ws, {
+              type: 'error',
+              message: 'Message contains potentially harmful content and was blocked.',
+            });
+            return;
+          }
+
+          const sanitizedMessage = sanitizeChatMessage(rawMessage);
+
+          // Don't send empty messages
+          if (!sanitizedMessage.trim()) {
+            return;
+          }
+
           const chatMessage: ChatMessage = {
             id: crypto.randomUUID(),
             userId,
             username,
-            message: data.message,
+            message: sanitizedMessage,
             timestamp: new Date().toISOString(),
             type: 'message',
           };
@@ -161,18 +182,15 @@ export class ChatRoom extends DurableObject {
 
   private getOnlineUsers(): string[] {
     const webSockets = this.ctx.getWebSockets();
-    console.log('Total WebSocket connections:', webSockets.length);
 
     const usernames = webSockets.map((ws) => {
       const tags = this.ctx.getTags(ws);
       const username = this.getTagValue(tags, 'username') || 'Anonymous';
-      console.log('Found user:', username);
       return username;
     });
 
     // Deduplicate usernames - one user might have multiple connections
     const uniqueUsers = [...new Set(usernames)];
-    console.log('Unique users:', uniqueUsers);
 
     return uniqueUsers;
   }

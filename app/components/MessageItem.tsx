@@ -1,4 +1,5 @@
 import React from 'react';
+import { sanitizeChatMessage } from '../../lib/sanitizer';
 
 interface ChatMessage {
   id: string;
@@ -36,16 +37,20 @@ export const MessageItem = React.memo(({ message, formatTime, currentUserName }:
             </span>
             <span className={`font-semibold text-sm ${getUsernameStyle(message.username)}`}>{message.username}:</span>
           </div>
-          <span className="text-gray-900 break-words text-sm sm:text-base leading-relaxed sm:flex-1 pl-12 sm:pl-0">
-            {message.message}
-          </span>
+          <span
+            className="text-gray-900 break-words text-sm sm:text-base leading-relaxed sm:flex-1 pl-12 sm:pl-0"
+            dangerouslySetInnerHTML={{ __html: sanitizeChatMessage(message.message) }}
+          />
         </div>
       ) : (
         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
           <span className="text-xs text-gray-500 min-w-[40px] sm:min-w-[50px] font-mono">
             {formatTime(message.timestamp)}
           </span>
-          <span className="text-blue-600 italic text-sm pl-12 sm:pl-0">{message.message}</span>
+          <span
+            className="text-blue-600 italic text-sm pl-12 sm:pl-0"
+            dangerouslySetInnerHTML={{ __html: sanitizeChatMessage(message.message) }}
+          />
         </div>
       )}
     </div>

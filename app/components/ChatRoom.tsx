@@ -100,7 +100,6 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', data); // Debug log
 
           switch (data.type) {
             case 'message':
@@ -119,7 +118,6 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
               console.log(`User ${data.type}: ${data.username}`);
               // Update online users count if provided
               if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
-                console.log('Updating online users:', data.onlineUsers);
                 setOnlineUsers(data.onlineUsers);
               }
               break;
@@ -127,7 +125,6 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
             case 'userCount':
               // Handle user count updates
               if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
-                console.log('User count update:', data.onlineUsers);
                 setOnlineUsers(data.onlineUsers);
               }
               break;
@@ -142,7 +139,6 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
               });
               // Update online users if provided with system message
               if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
-                console.log('System message online users:', data.onlineUsers);
                 setOnlineUsers(data.onlineUsers);
               }
               break;
@@ -163,7 +159,6 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
               }
               // Update online users if provided with history
               if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
-                console.log('History online users:', data.onlineUsers);
                 setOnlineUsers(data.onlineUsers);
               }
               break;
