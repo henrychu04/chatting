@@ -15,20 +15,35 @@ export function meta() {
 export default function Home() {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  const [hasRedirected, setHasRedirected] = useState(false);
   const { data: sessionData, isPending, refetch } = useSession();
 
+  // Client-side hydration detection
   useEffect(() => {
-    console.log('Home page - isPending:', isPending, 'sessionData:', sessionData);
-    if (!isPending && !sessionData?.user) {
-      console.log('No user session, redirecting to login...');
-      navigate('/login');
-    }
-  }, [sessionData, isPending, navigate]);
+    setIsClient(true);
+  }, []);
 
-  if (isPending) {
+  // Handle authentication redirect with delay to prevent flash
+  useEffect(() => {
+    if (isClient && !isPending && !sessionData?.user && !hasRedirected) {
+      console.log('No user session, redirecting to login...');
+      setHasRedirected(true);
+      // Small delay to prevent flash during navigation
+      setTimeout(() => {
+        navigate('/login');
+      }, 100);
+    }
+  }, [sessionData, isPending, navigate, isClient, hasRedirected]);
+
+  // Show consistent loading state during SSR and initial client load
+  if (!isClient || isPending || (!sessionData?.user && !hasRedirected)) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center gap-4">
+          <div className="w-8 h-8 bg-blue-500 rounded-full animate-pulse"></div>
+          <div className="text-gray-600">Loading chat...</div>
+        </div>
       </div>
     );
   }

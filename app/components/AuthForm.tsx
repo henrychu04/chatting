@@ -91,12 +91,22 @@ export function AuthForm() {
   };
 
   if (isPending) {
-    return <div className="text-center text-gray-400">Loading...</div>;
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        <div className="w-6 h-6 bg-blue-500 rounded-full animate-pulse"></div>
+        <div className="text-gray-600 text-sm">Loading...</div>
+      </div>
+    );
   }
 
   // If user is logged in, show loading while redirect happens
   if (sessionData?.user) {
-    return <div className="text-center text-gray-400">Redirecting to chat...</div>;
+    return (
+      <div className="flex flex-col items-center gap-4 py-8">
+        <div className="w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
+        <div className="text-gray-600 text-sm">Redirecting to chat...</div>
+      </div>
+    );
   }
 
   return (

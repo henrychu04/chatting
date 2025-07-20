@@ -57,13 +57,15 @@ export class ChatRoom extends DurableObject {
       type: 'system',
       message: `Welcome to the chat room, ${username}!`,
       timestamp: new Date().toISOString(),
+      onlineUsers: this.getOnlineUsers(),
     });
 
-    // Send recent message history
+    // Send recent message history with online users
     if (this.messageHistory.length > 0) {
       this.sendToSocket(server, {
         type: 'history',
         messages: this.messageHistory.slice(-20), // Last 20 messages
+        onlineUsers: this.getOnlineUsers(),
       });
     }
 
@@ -77,7 +79,7 @@ export class ChatRoom extends DurableObject {
       type: 'join',
     };
 
-    this.broadcastMessage(joinMessage, server);
+    this.broadcastWithUserCount(joinMessage, server);
     this.addToHistory(joinMessage);
 
     return new Response(null, {
@@ -142,7 +144,7 @@ export class ChatRoom extends DurableObject {
       type: 'leave',
     };
 
-    this.broadcastMessage(leaveMessage, ws);
+    this.broadcastWithUserCount(leaveMessage, ws);
     this.addToHistory(leaveMessage);
   }
 
@@ -157,6 +159,14 @@ export class ChatRoom extends DurableObject {
     return tag ? tag.split(':', 2)[1] : null;
   }
 
+  private getOnlineUsers(): string[] {
+    const webSockets = this.ctx.getWebSockets();
+    return webSockets.map((ws) => {
+      const tags = this.ctx.getTags(ws);
+      return this.getTagValue(tags, 'username') || 'Anonymous';
+    });
+  }
+
   private broadcastMessage(message: ChatMessage, excludeSocket?: WebSocket) {
     const messageStr = JSON.stringify(message);
     const webSockets = this.ctx.getWebSockets();
@@ -168,6 +178,25 @@ export class ChatRoom extends DurableObject {
         } catch (error) {
           console.error('Error sending message to socket:', error);
           // The hibernation API handles cleanup automatically
+        }
+      }
+    }
+  }
+
+  private broadcastWithUserCount(message: any, excludeSocket?: WebSocket) {
+    const messageWithUsers = {
+      ...message,
+      onlineUsers: this.getOnlineUsers(),
+    };
+    const messageStr = JSON.stringify(messageWithUsers);
+    const webSockets = this.ctx.getWebSockets();
+
+    for (const socket of webSockets) {
+      if (socket !== excludeSocket) {
+        try {
+          socket.send(messageStr);
+        } catch (error) {
+          console.error('Error sending message to socket:', error);
         }
       }
     }

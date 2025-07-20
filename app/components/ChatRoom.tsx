@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSession } from '../../lib/auth/better-auth-client';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
+import { MessageItem } from './MessageItem';
 
 interface ChatMessage {
   id: string;
@@ -28,32 +29,49 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
   );
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-scroll to bottom when new messages arrive with better performance
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       // Use requestAnimationFrame for better performance on mobile
       requestAnimationFrame(() => {
         messagesEndRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
+          behavior: 'auto', // Changed to auto for smoother push-up effect
+          block: 'end',
           inline: 'nearest',
         });
       });
     }
-  };
+  }, []);
+
+  // Memoize current user to prevent unnecessary re-renders
+  const currentUser = useMemo(() => {
+    return sessionData?.user || anonymousUser;
+  }, [sessionData?.user, anonymousUser]);
+
+  // Virtualize messages - only render last 100 messages for performance
+  const visibleMessages = useMemo(() => {
+    const MAX_VISIBLE_MESSAGES = 100;
+    return messages.length > MAX_VISIBLE_MESSAGES ? messages.slice(-MAX_VISIBLE_MESSAGES) : messages;
+  }, [messages]);
+
+  // Memoize placeholder text to prevent unnecessary recalculations
+  const inputPlaceholder = useMemo(() => {
+    if (!currentUser) return 'Loading...';
+    const displayName = currentUser.name.length > 15 ? currentUser.name.slice(0, 15) + '...' : currentUser.name;
+    return `Message as ${displayName}...`;
+  }, [currentUser]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   // Connect to WebSocket
-  const connect = () => {
-    const currentUser = sessionData?.user || anonymousUser;
+  const connect = useCallback(() => {
     if (!currentUser) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -66,6 +84,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     )}&username=${encodeURIComponent(username)}`;
 
     setConnectionStatus('connecting');
+    setHasInitialLoad(false);
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -75,17 +94,13 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
         console.log('WebSocket connected');
         setIsConnected(true);
         setConnectionStatus('connected');
-
-        // Clear any existing reconnect timeout
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-          reconnectTimeoutRef.current = null;
-        }
+        setHasInitialLoad(true);
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('WebSocket message received:', data); // Debug log
 
           switch (data.type) {
             case 'message':
@@ -102,6 +117,19 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
             case 'leave':
               // Log join/leave events but don't show them in chat
               console.log(`User ${data.type}: ${data.username}`);
+              // Update online users count if provided
+              if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
+                console.log('Updating online users:', data.onlineUsers);
+                setOnlineUsers(data.onlineUsers);
+              }
+              break;
+
+            case 'userCount':
+              // Handle user count updates
+              if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
+                console.log('User count update:', data.onlineUsers);
+                setOnlineUsers(data.onlineUsers);
+              }
               break;
 
             case 'system':
@@ -112,6 +140,11 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
                 }
                 return [...prev, data];
               });
+              // Update online users if provided with system message
+              if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
+                console.log('System message online users:', data.onlineUsers);
+                setOnlineUsers(data.onlineUsers);
+              }
               break;
 
             case 'history':
@@ -127,6 +160,11 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
                   const newMessages = chatMessages.filter((msg: ChatMessage) => !existingIds.has(msg.id));
                   return [...prev, ...newMessages];
                 });
+              }
+              // Update online users if provided with history
+              if (data.onlineUsers && Array.isArray(data.onlineUsers)) {
+                console.log('History online users:', data.onlineUsers);
+                setOnlineUsers(data.onlineUsers);
               }
               break;
 
@@ -150,13 +188,13 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
         console.log('WebSocket disconnected:', event.code, event.reason);
         setIsConnected(false);
         setConnectionStatus('disconnected');
+        setHasInitialLoad(false);
+        setOnlineUsers([]); // Clear online users when disconnected
 
-        // Attempt to reconnect after 3 seconds if not manually closed
+        // Attempt to reconnect immediately if not manually closed
         if (event.code !== 1000) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect...');
-            connect();
-          }, 3000);
+          console.log('Attempting to reconnect...');
+          connect();
         }
       };
 
@@ -168,23 +206,21 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       console.error('Failed to create WebSocket:', error);
       setConnectionStatus('error');
     }
-  };
+  }, [currentUser, roomName]);
 
   // Disconnect WebSocket
-  const disconnect = () => {
+  const disconnect = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close(1000, 'User disconnected');
       wsRef.current = null;
     }
 
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  };
+    setHasInitialLoad(false);
+    setOnlineUsers([]); // Clear online users when manually disconnecting
+  }, []);
 
   // Send message
-  const sendMessage = () => {
+  const sendMessage = useCallback(() => {
     if (!wsRef.current || !inputMessage.trim()) return;
 
     const message = {
@@ -198,29 +234,40 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     } catch (error) {
       console.error('Failed to send message:', error);
     }
-  };
+  }, [inputMessage]);
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    sendMessage();
-  };
-
-  // Handle input key press
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
       e.preventDefault();
       sendMessage();
-    }
-  };
+    },
+    [sendMessage]
+  );
+
+  // Handle input key press
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    },
+    [sendMessage]
+  );
 
   // Handle touch events for better mobile experience
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     // Prevent iOS Safari from zooming when focusing on input
     if (e.target instanceof HTMLInputElement) {
       e.target.style.fontSize = '16px';
     }
-  };
+  }, []);
+
+  // Debounced input change handler
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value);
+  }, []);
 
   useEffect(() => {
     setIsClient(true);
@@ -250,16 +297,13 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
 
   // Connect when component mounts and user is available (authenticated or anonymous)
   useEffect(() => {
-    const currentUser = sessionData?.user || anonymousUser;
     if (currentUser && isClient) {
       // Disconnect first if we're already connected to prevent multiple connections
       if (wsRef.current) {
         disconnect();
       }
-      // Small delay to ensure clean disconnection before reconnecting
-      setTimeout(() => {
-        connect();
-      }, 100);
+      // Connect immediately
+      connect();
     }
 
     return () => {
@@ -268,22 +312,12 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
   }, [sessionData?.user, anonymousUser, roomName, isClient]);
 
   // Format timestamp
-  const formatTime = (timestamp: string) => {
+  const formatTime = useCallback((timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  // Get message styling based on type
-  const getMessageStyle = (message: ChatMessage) => {
-    switch (message.type) {
-      case 'system':
-        return 'text-blue-600 italic text-sm';
-      default:
-        return 'text-gray-800';
-    }
-  };
+  }, []);
 
   if (!isClient) {
     return (
@@ -297,8 +331,6 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       </Card>
     );
   }
-
-  const currentUser = sessionData?.user || anonymousUser;
 
   // Show loading while session is being checked
   if (sessionLoading) {
@@ -351,6 +383,27 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
               ></span>
               <span className="text-gray-600 capitalize">{connectionStatus}</span>
             </div>
+
+            {/* Active users count */}
+            {connectionStatus === 'connected' && (
+              <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-600">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5 0A6 6 0 0021 15H9a6 6 0 006-6.001z"
+                  />
+                </svg>
+                <span>
+                  {onlineUsers.length === 0
+                    ? 'Loading users...'
+                    : onlineUsers.length === 1
+                    ? '1 user active'
+                    : `${onlineUsers.length} users active`}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -375,9 +428,11 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-        {messages.length === 0 ? (
-          <div className="text-center py-8 sm:py-12">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex flex-col justify-end">
+        {!hasInitialLoad ? (
+          <div></div>
+        ) : visibleMessages.length === 0 ? (
+          <div className="text-center py-8 sm:py-12 flex-shrink-0">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
               <svg className="w-6 h-6 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -394,43 +449,14 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
             </p>
           </div>
         ) : (
-          <div className="space-y-0.5 sm:space-y-1">
+          <div className="space-y-0.5 sm:space-y-1 flex-shrink-0">
             {messages.map((message) => (
-              <div
+              <MessageItem
                 key={message.id}
-                className="hover:bg-white hover:shadow-sm rounded-lg transition-all duration-200 group"
-              >
-                {message.type === 'message' ? (
-                  <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-baseline gap-1 sm:gap-2">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xs text-gray-500 min-w-[40px] sm:min-w-[50px] font-mono">
-                        {formatTime(message.timestamp)}
-                      </span>
-                      <span
-                        className={`font-semibold text-sm ${
-                          sessionData?.user && message.username === sessionData.user.name
-                            ? 'text-blue-600'
-                            : message.username.startsWith('Guest')
-                            ? 'text-purple-600'
-                            : 'text-gray-700'
-                        }`}
-                      >
-                        {message.username}:
-                      </span>
-                    </div>
-                    <span className="text-gray-900 break-words text-sm sm:text-base leading-relaxed sm:flex-1 pl-12 sm:pl-0">
-                      {message.message}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <span className="text-xs text-gray-500 min-w-[40px] sm:min-w-[50px] font-mono">
-                      {formatTime(message.timestamp)}
-                    </span>
-                    <span className="text-blue-600 italic text-sm pl-12 sm:pl-0">{message.message}</span>
-                  </div>
-                )}
-              </div>
+                message={message}
+                formatTime={formatTime}
+                currentUserName={currentUser?.name}
+              />
             ))}
           </div>
         )}
@@ -443,12 +469,10 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
           <input
             type="text"
             value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
+            onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             onTouchStart={handleTouchStart}
-            placeholder={`Message as ${
-              currentUser.name.length > 15 ? currentUser.name.slice(0, 15) + '...' : currentUser.name
-            }...`}
+            placeholder={inputPlaceholder}
             disabled={!isConnected}
             className="flex-1 px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200"
             style={{ fontSize: '16px' }}
