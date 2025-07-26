@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSession } from '../../lib/auth/better-auth-client';
-import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { MessageItem } from './MessageItem';
 
 interface ChatMessage {
