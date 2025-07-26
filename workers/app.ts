@@ -17,8 +17,8 @@ declare module 'react-router' {
   }
 }
 
-// Export the ChatRoom class for Durable Objects
-export { ChatRoom } from './chat-room';
+// Export the Facet class for Durable Objects
+export { Facet } from './facet';
 
 const requestHandler = createRequestHandler(() => import('virtual:react-router/server-build'), import.meta.env.MODE);
 
@@ -26,11 +26,11 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // Handle WebSocket connections to chat rooms
+    // Handle WebSocket connections to facets
     if (url.pathname.startsWith('/api/chat/')) {
-      const roomName = url.pathname.split('/')[3] || 'general';
-      const durableObjectId = env.CHAT_ROOM.idFromName(roomName);
-      const durableObject = env.CHAT_ROOM.get(durableObjectId);
+      const facetName = url.pathname.split('/')[3] || 'general';
+      const durableObjectId = env.FACET.idFromName(facetName);
+      const durableObject = env.FACET.get(durableObjectId);
 
       // Forward request to the Durable Object
       return durableObject.fetch(request);

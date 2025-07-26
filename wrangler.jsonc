@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "chatting-app-2",
+  "name": "edge-chat",
   "compatibility_date": "2025-04-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./workers/app.ts",
   "vars": {
-    "BETTER_AUTH_URL": "https://chatting-app-2.henrychu04.workers.dev"
+    "BETTER_AUTH_URL": "https://edgechat.io"
   },
   "env": {
     "preview": {
@@ -15,7 +15,7 @@
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "chatting-app-production",
+          "database_name": "edge-chat-production",
           "database_id": "7f6dfa6d-d22c-4e2a-8289-f2cea8776643",
           "migrations_dir": "drizzle"
         }
@@ -23,9 +23,9 @@
       "durable_objects": {
         "bindings": [
           {
-            "name": "CHAT_ROOM",
-            "class_name": "ChatRoom",
-            "script_name": "chatting-app-2"
+            "name": "FACET",
+            "class_name": "Facet",
+            "script_name": "edge-chat"
           }
         ]
       }
@@ -34,7 +34,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "chatting-app-production",
+      "database_name": "edge-chat-production",
       "database_id": "7f6dfa6d-d22c-4e2a-8289-f2cea8776643",
       "migrations_dir": "drizzle"
     }
@@ -42,8 +42,8 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "CHAT_ROOM",
-        "class_name": "ChatRoom"
+        "name": "FACET",
+        "class_name": "Facet"
       }
     ]
   },
@@ -51,6 +51,19 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["ChatRoom"]
+    },
+    {
+      "tag": "v2", 
+      "renamed_classes": [
+        {
+          "from": "ChatRoom",
+          "to": "Facet"
+        }
+      ]
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
 }

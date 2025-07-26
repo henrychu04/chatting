@@ -14,11 +14,11 @@ interface ChatMessage {
   type: 'message' | 'join' | 'leave' | 'system';
 }
 
-interface ChatRoomProps {
-  roomName?: string;
+interface FacetProps {
+  facetName?: string;
 }
 
-export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
+export function Facet({ facetName = 'general' }: FacetProps) {
   const { data: sessionData, isPending: sessionLoading } = useSession();
   const [anonymousUser, setAnonymousUser] = useState<{ id: string; name: string } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -30,6 +30,12 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{
+    isBlocked: boolean;
+    blockedUntil?: number;
+    remainingTime?: number;
+    message?: string;
+  } | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -79,7 +85,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     const userId = currentUser.id;
     const username = currentUser.name;
 
-    const wsUrl = `${protocol}//${host}/api/chat/${roomName}?userId=${encodeURIComponent(
+    const wsUrl = `${protocol}//${host}/api/chat/${facetName}?userId=${encodeURIComponent(
       userId
     )}&username=${encodeURIComponent(username)}`;
 
@@ -163,6 +169,16 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
               }
               break;
 
+            case 'rate_limit_exceeded':
+              console.warn('Rate limit exceeded:', data.message);
+              setRateLimitInfo({
+                isBlocked: true,
+                blockedUntil: data.blockedUntil,
+                remainingTime: data.remainingTime,
+                message: data.message,
+              });
+              break;
+
             case 'error':
               console.error('Chat error:', data.message);
               break;
@@ -185,6 +201,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
         setConnectionStatus('disconnected');
         setHasInitialLoad(false);
         setOnlineUsers([]); // Clear online users when disconnected
+        setRateLimitInfo(null); // Clear rate limit info when disconnected
 
         // Attempt to reconnect immediately if not manually closed
         if (event.code !== 1000) {
@@ -201,7 +218,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       console.error('Failed to create WebSocket:', error);
       setConnectionStatus('error');
     }
-  }, [currentUser, roomName]);
+  }, [currentUser, facetName]);
 
   // Disconnect WebSocket
   const disconnect = useCallback(() => {
@@ -212,11 +229,12 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
 
     setHasInitialLoad(false);
     setOnlineUsers([]); // Clear online users when manually disconnecting
+    setRateLimitInfo(null); // Clear rate limit info when manually disconnecting
   }, []);
 
   // Send message
   const sendMessage = useCallback(() => {
-    if (!wsRef.current || !inputMessage.trim()) return;
+    if (!wsRef.current || !inputMessage.trim() || rateLimitInfo?.isBlocked) return;
 
     const message = {
       type: 'message',
@@ -229,7 +247,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     } catch (error) {
       console.error('Failed to send message:', error);
     }
-  }, [inputMessage]);
+  }, [inputMessage, rateLimitInfo?.isBlocked]);
 
   // Handle form submission
   const handleSubmit = useCallback(
@@ -240,8 +258,8 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     [sendMessage]
   );
 
-  // Handle input key press
-  const handleKeyPress = useCallback(
+  // Handle input key down
+  const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -304,7 +322,26 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     return () => {
       disconnect();
     };
-  }, [sessionData?.user, anonymousUser, roomName, isClient]);
+  }, [sessionData?.user, anonymousUser, facetName, isClient]);
+
+  // Handle rate limit timer
+  useEffect(() => {
+    if (!rateLimitInfo?.isBlocked || !rateLimitInfo.blockedUntil) return;
+
+    const now = Date.now();
+    const timeRemaining = rateLimitInfo.blockedUntil - now;
+
+    if (timeRemaining <= 0) {
+      setRateLimitInfo(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setRateLimitInfo(null);
+    }, timeRemaining);
+
+    return () => clearTimeout(timer);
+  }, [rateLimitInfo]);
 
   // Format timestamp
   const formatTime = useCallback((timestamp: string) => {
@@ -318,7 +355,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
     return (
       <Card className="flex flex-col h-96">
         <CardHeader>
-          <CardTitle className="text-lg">Chat Room: {roomName}</CardTitle>
+          <CardTitle className="text-lg">Facet: {facetName}</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center">
           <p className="text-gray-600">Loading...</p>
@@ -365,7 +402,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Chat Messages</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Facet Messages</h2>
             <div className="flex items-center gap-2 text-xs sm:text-sm">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -438,7 +475,7 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
                 />
               </svg>
             </div>
-            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Welcome to the chat!</h3>
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Welcome to the facet!</h3>
             <p className="text-sm sm:text-base text-gray-600 px-4">
               Start the conversation by sending a message below.
             </p>
@@ -459,16 +496,39 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
       </div>
 
       {/* Input */}
-      <div className="p-3 sm:p-4 border-t border-gray-200 bg-white">
-        <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3">
-          <input
+      <div className="border-t border-gray-200 bg-white">
+        {/* Rate limit notification */}
+        {rateLimitInfo?.isBlocked && (
+          <div className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-50 border-b border-red-200">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+              <div className="text-sm text-red-700">
+                <span className="font-medium">Rate limited.</span>
+                {rateLimitInfo.remainingTime && rateLimitInfo.remainingTime > 0 && (
+                  <span> Try again in {Math.ceil(rateLimitInfo.remainingTime)}s</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="p-3 sm:p-4">
+          <form onSubmit={handleSubmit} className="flex gap-2 sm:gap-3">
+            <input
             type="text"
             value={inputMessage}
             onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             onTouchStart={handleTouchStart}
             placeholder={inputPlaceholder}
-            disabled={!isConnected}
+            disabled={!isConnected || rateLimitInfo?.isBlocked}
             className="flex-1 px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200"
             style={{ fontSize: '16px' }}
             autoComplete="off"
@@ -477,22 +537,45 @@ export function ChatRoom({ roomName = 'general' }: ChatRoomProps) {
           />
           <button
             type="submit"
-            disabled={!isConnected || !inputMessage.trim()}
-            className="px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:from-blue-600 hover:to-purple-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 min-w-[60px] sm:min-w-[80px]"
+            disabled={!isConnected || !inputMessage.trim() || rateLimitInfo?.isBlocked}
+            className={`px-4 py-2 sm:px-6 sm:py-3 text-white rounded-lg text-xs sm:text-sm font-medium focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 min-w-[60px] sm:min-w-[80px] ${
+              rateLimitInfo?.isBlocked
+                ? 'bg-red-500 hover:bg-red-600 focus:ring-red-500'
+                : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 focus:ring-blue-500'
+            }`}
           >
-            <span className="hidden sm:inline">Send</span>
-            <span className="sm:hidden">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            </span>
+            {rateLimitInfo?.isBlocked ? (
+              <>
+                <span className="hidden sm:inline">Blocked</span>
+                <span className="sm:hidden">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
+                    />
+                  </svg>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Send</span>
+                <span className="sm:hidden">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    />
+                  </svg>
+                </span>
+              </>
+            )}
           </button>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ChatRoom } from '../components/ChatRoom';
+import { Facet } from '../components/Facet';
 import { useSession, signOut } from '../../lib/auth/better-auth-client';
 
 export function meta() {
   return [
-    { title: 'Chat App - React Router App' },
-    { name: 'description', content: 'Real-time chat with Better Auth and Durable Objects!' },
+    { title: 'Edge Chat - Real-time Messaging' },
+    { name: 'description', content: 'Real-time messaging with Edge Chat - powered by Cloudflare!' },
   ];
 }
 
@@ -70,7 +70,7 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Public Chat</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Edge Chat</h1>
                 <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
                   <div className="flex items-center gap-1">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -135,8 +135,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Chat Room */}
-        <ChatRoom roomName="general" />
+        {/* Facet */}
+        <Facet facetName="general" />
       </div>
     </div>
   );

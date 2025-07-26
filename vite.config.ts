@@ -14,14 +14,4 @@ export default defineConfig({
     reactRouter(),
     tsconfigPaths(),
   ],
-  // esbuild: {
-  //   jsx: 'automatic',
-  //   jsxImportSource: 'react',
-  // },
-  // ssr: {
-  //   noExternal: ['react', 'react-dom'],
-  // },
-  // build: {
-  //   outDir: 'build',
-  // },
 });

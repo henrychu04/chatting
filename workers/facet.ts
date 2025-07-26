@@ -10,9 +10,27 @@ interface ChatMessage {
   type: 'message' | 'join' | 'leave' | 'system';
 }
 
-export class ChatRoom extends DurableObject {
+interface RateLimitConfig {
+  maxRequests: number;
+  windowMs: number;
+  blockDurationMs: number;
+}
+
+interface UserRateLimit {
+  tokens: number;
+  lastRefill: number;
+  blockedUntil?: number;
+}
+
+export class Facet extends DurableObject {
   private messageHistory: ChatMessage[] = [];
   private maxHistorySize = 100;
+  private rateLimitMap: Map<string, UserRateLimit> = new Map();
+  private rateLimitConfig: RateLimitConfig = {
+    maxRequests: 30,
+    windowMs: 60000,
+    blockDurationMs: 60000,
+  };
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -57,7 +75,7 @@ export class ChatRoom extends DurableObject {
     // Send welcome message and recent history
     this.sendToSocket(server, {
       type: 'system',
-      message: `Welcome to the chat room, ${username}!`,
+      message: `Welcome to the facet, ${username}!`,
       timestamp: new Date().toISOString(),
       onlineUsers: this.getOnlineUsers(),
     });
@@ -76,7 +94,7 @@ export class ChatRoom extends DurableObject {
       id: crypto.randomUUID(),
       userId,
       username,
-      message: `${username} joined the chat`,
+      message: `${username} joined the facet`,
       timestamp: new Date().toISOString(),
       type: 'join',
     };
@@ -99,6 +117,22 @@ export class ChatRoom extends DurableObject {
       // Parse user info from tags
       const userId = this.getTagValue(tags, 'userId') || 'anonymous';
       const username = this.getTagValue(tags, 'username') || 'Anonymous';
+
+      // Check rate limit for this user
+      const rateLimitResult = this.checkRateLimit(userId);
+      
+      if (!rateLimitResult.allowed) {
+        const blockedUntil = rateLimitResult.blockedUntil;
+        const remainingTime = blockedUntil ? Math.ceil((blockedUntil - Date.now()) / 1000) : 0;
+        
+        this.sendToSocket(ws, {
+          type: 'rate_limit_exceeded',
+          message: `Rate limit exceeded. You are temporarily blocked for ${remainingTime} seconds.`,
+          blockedUntil,
+          remainingTime,
+        });
+        return;
+      }
 
       switch (data.type) {
         case 'message':
@@ -160,7 +194,7 @@ export class ChatRoom extends DurableObject {
       id: crypto.randomUUID(),
       userId,
       username,
-      message: `${username} left the chat`,
+      message: `${username} left the facet`,
       timestamp: new Date().toISOString(),
       type: 'leave',
     };
@@ -178,6 +212,45 @@ export class ChatRoom extends DurableObject {
   private getTagValue(tags: string[], key: string): string | null {
     const tag = tags.find((tag) => tag.startsWith(`${key}:`));
     return tag ? tag.split(':', 2)[1] : null;
+  }
+
+  private checkRateLimit(userId: string): { allowed: boolean; remainingTokens?: number; blockedUntil?: number } {
+    const now = Date.now();
+    const userLimit = this.rateLimitMap.get(userId);
+
+    if (!userLimit) {
+      this.rateLimitMap.set(userId, {
+        tokens: this.rateLimitConfig.maxRequests - 1,
+        lastRefill: now,
+      });
+      return { allowed: true, remainingTokens: this.rateLimitConfig.maxRequests - 1 };
+    }
+
+    if (userLimit.blockedUntil && now < userLimit.blockedUntil) {
+      return { allowed: false, blockedUntil: userLimit.blockedUntil };
+    }
+
+    if (userLimit.blockedUntil && now >= userLimit.blockedUntil) {
+      userLimit.blockedUntil = undefined;
+      userLimit.tokens = this.rateLimitConfig.maxRequests;
+      userLimit.lastRefill = now;
+    }
+
+    const timePassed = now - userLimit.lastRefill;
+    const tokensToAdd = Math.floor(timePassed / (this.rateLimitConfig.windowMs / this.rateLimitConfig.maxRequests));
+    
+    if (tokensToAdd > 0) {
+      userLimit.tokens = Math.min(this.rateLimitConfig.maxRequests, userLimit.tokens + tokensToAdd);
+      userLimit.lastRefill = now;
+    }
+
+    if (userLimit.tokens <= 0) {
+      userLimit.blockedUntil = now + this.rateLimitConfig.blockDurationMs;
+      return { allowed: false, blockedUntil: userLimit.blockedUntil };
+    }
+
+    userLimit.tokens--;
+    return { allowed: true, remainingTokens: userLimit.tokens };
   }
 
   private getOnlineUsers(): string[] {

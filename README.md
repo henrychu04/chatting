@@ -1,6 +1,6 @@
-# 💬 Real-Time Chat Application
+# 💬 Edge Chat
 
-A modern, production-ready real-time chat application built with React Router v7, Cloudflare Workers, and Durable Objects.
+A modern, production-ready real-time messaging application built with React Router v7, Cloudflare Workers, and Durable Objects.
 
 ## ✨ Features
 
@@ -14,7 +14,7 @@ A modern, production-ready real-time chat application built with React Router v7
 ### 💬 **Real-Time Chat**
 
 - **WebSocket Communication** - Instant messaging with Cloudflare Durable Objects
-- **Multiple Chat Rooms** - Support for different chat channels
+- **Multiple Facets** - Support for different messaging channels
 - **Message History** - Persistent message storage and retrieval
 - **Auto-Reconnection** - Seamless reconnection on connection loss
 - **Anonymous & Authenticated Users** - Guest users and registered accounts
@@ -47,7 +47,7 @@ A modern, production-ready real-time chat application built with React Router v7
 
    ```bash
    git clone <your-repo-url>
-   cd chatting-app-2
+   cd edge-chat
    npm install
    ```
 
@@ -99,7 +99,7 @@ A modern, production-ready real-time chat application built with React Router v7
 │   └── lib/               # Utilities and configurations
 ├── workers/               # Cloudflare Workers
 │   ├── app.ts            # Main worker entry point
-│   ├── chat-room.ts      # Durable Object for chat rooms
+│   ├── facet.ts          # Durable Object for facets
 │   ├── logger.ts         # Production logging system
 │   └── message-validator.ts # Input validation & security
 ├── database/              # Database schema and migrations
@@ -215,8 +215,8 @@ npm run typecheck       # Run TypeScript checks
 ### Key Files
 
 - **`app/routes/home.tsx`** - Main chat interface
-- **`app/components/ChatRoom.tsx`** - Real-time chat component
-- **`workers/chat-room.ts`** - WebSocket handling with Durable Objects
+- **`app/components/Facet.tsx`** - Real-time messaging component
+- **`workers/facet.ts`** - WebSocket handling with Durable Objects
 - **`lib/auth/better-auth.ts`** - Authentication configuration
 - **`database/schema.ts`** - Database schema definitions
 
@@ -258,3 +258,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Built with ❤️ using React Router v7, Cloudflare Workers, and modern web technologies.
+
+🌐 **Visit Edge Chat at [edgechat.io](https://edgechat.io)**
