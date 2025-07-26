@@ -1,6 +1,6 @@
 # 💬 Edge Chat
 
-A modern, production-ready real-time messaging application built with React Router v7, Cloudflare Workers, and Durable Objects.
+A modern, secure real-time messaging application built with React Router v7, Cloudflare Workers, and Durable Objects. Deployed at [edgechat.io](https://edgechat.io).
 
 ## ✨ Features
 
@@ -14,9 +14,10 @@ A modern, production-ready real-time messaging application built with React Rout
 ### 💬 **Real-Time Chat**
 
 - **WebSocket Communication** - Instant messaging with Cloudflare Durable Objects
-- **Multiple Facets** - Support for different messaging channels
-- **Message History** - Persistent message storage and retrieval
+- **Facet-based Messaging** - Organized conversation channels with persistent state
+- **Message Sanitization** - Advanced XSS protection with DOMPurify and custom filtering
 - **Auto-Reconnection** - Seamless reconnection on connection loss
+- **TRPC Integration** - Type-safe API communication between client and server
 - **Anonymous & Authenticated Users** - Guest users and registered accounts
 
 ### 🎨 **Modern UI/UX**
@@ -27,12 +28,14 @@ A modern, production-ready real-time messaging application built with React Rout
 - **Real-time Status** - Connection status and user presence indicators
 - **Smooth Animations** - Polished user experience with micro-interactions
 
-### ⚡ **Performance & Scalability**
+### ⚡ **Performance & Security**
 
 - **Edge Computing** - Cloudflare Workers for global low-latency
-- **Server-Side Rendering** - Fast initial page loads
-- **Type Safety** - End-to-end TypeScript for reliability
-- **Production Ready** - Security, logging, and monitoring built-in
+- **Server-Side Rendering** - Fast initial page loads with React Router v7
+- **Type Safety** - End-to-end TypeScript with TRPC for API safety
+- **Advanced Security** - Input sanitization, message validation, and XSS protection
+- **Production Ready** - Structured logging, monitoring, and observability
+- **Code Quality** - Automated linting, formatting, and pre-commit hooks
 
 ## 🚀 Quick Start
 
@@ -85,25 +88,40 @@ A modern, production-ready real-time messaging application built with React Rout
 ### Tech Stack
 
 - **Frontend:** React Router v7, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend:** Cloudflare Workers, Durable Objects, better-auth
+- **Backend:** Cloudflare Workers, Durable Objects, TRPC, better-auth
 - **Database:** Cloudflare D1 (SQLite), Drizzle ORM
-- **Real-time:** WebSockets with Durable Objects
+- **Real-time:** WebSockets with Durable Objects (Facets)
+- **Security:** DOMPurify, message validation, input sanitization
+- **Code Quality:** Oxlint, Prettier, lint-staged with Husky
 - **Deployment:** Cloudflare Workers (Edge computing)
 
 ### Project Structure
 
 ```
-├── app/                    # React Router application
-│   ├── components/         # Reusable UI components
-│   ├── routes/            # Page routes (home, login)
-│   └── lib/               # Utilities and configurations
+├── app/                    # React Router v7 application
+│   ├── components/         # React components
+│   │   ├── ui/            # shadcn/ui components (button, input, etc.)
+│   │   ├── AuthForm.tsx   # Authentication form
+│   │   ├── Facet.tsx      # Real-time chat component
+│   │   ├── MessageItem.tsx # Individual message display
+│   │   └── TRPCProvider.tsx # TRPC client setup
+│   ├── routes/            # Page routes
+│   │   ├── home.tsx       # Main chat interface
+│   │   └── login.tsx      # Authentication page
+│   └── lib/               # Client-side utilities
 ├── workers/               # Cloudflare Workers
 │   ├── app.ts            # Main worker entry point
-│   ├── facet.ts          # Durable Object for facets
-│   ├── logger.ts         # Production logging system
-│   └── message-validator.ts # Input validation & security
-├── database/              # Database schema and migrations
-├── lib/auth/             # Authentication configuration
+│   ├── facet.ts          # Durable Object for chat rooms
+│   ├── logger.ts         # Structured logging system
+│   └── message-validator.ts # Message validation & security
+├── server/                # TRPC server setup
+│   ├── routers/          # API route definitions
+│   └── trpc.ts           # TRPC context and configuration
+├── lib/                   # Shared utilities
+│   ├── auth/             # Better Auth configuration
+│   ├── sanitizer.ts      # Message sanitization (DOMPurify)
+│   └── sanitizer-examples.md # Security examples
+├── database/              # Database schema
 └── drizzle/              # Database migrations
 ```
 
@@ -177,12 +195,10 @@ npx wrangler deploy
 If using a custom domain:
 
 1. **Add domain to Cloudflare:**
-
    - Go to Cloudflare Dashboard
    - Add your domain and configure DNS
 
 2. **Set up Workers route:**
-
    - Workers & Pages → your-worker → Settings → Triggers
    - Add Custom Domain: `your-domain.com`
 
@@ -201,6 +217,21 @@ If using a custom domain:
 
 ## 🔧 Development
 
+### Code Quality & Formatting
+
+This project uses automated code quality tools:
+
+- **Oxlint** - Fast linting with automatic fixes
+- **Prettier** - Code formatting for consistent style
+- **lint-staged** - Pre-commit hooks to ensure quality
+- **Husky** - Git hooks management
+
+**Pre-commit hooks automatically:**
+
+- Lint and auto-fix code issues
+- Format all staged files
+- Ensure consistent code style
+
 ### Available Scripts
 
 ```bash
@@ -210,30 +241,40 @@ npm run deploy          # Deploy to Cloudflare Workers
 npm run db:generate     # Generate new migration
 npm run db:migrate      # Apply migrations locally
 npm run typecheck       # Run TypeScript checks
+npm run lint            # Run oxlint for code quality
+npm run format          # Format code with prettier
+npm run format:check    # Check code formatting
 ```
 
 ### Key Files
 
-- **`app/routes/home.tsx`** - Main chat interface
-- **`app/components/Facet.tsx`** - Real-time messaging component
-- **`workers/facet.ts`** - WebSocket handling with Durable Objects
-- **`lib/auth/better-auth.ts`** - Authentication configuration
-- **`database/schema.ts`** - Database schema definitions
+- **`app/routes/home.tsx`** - Main chat interface with real-time messaging
+- **`app/components/Facet.tsx`** - WebSocket client for real-time chat
+- **`workers/facet.ts`** - Durable Object handling WebSocket connections
+- **`lib/sanitizer.ts`** - Advanced message sanitization and XSS protection
+- **`server/trpc.ts`** - TRPC server configuration and context
+- **`lib/auth/better-auth.ts`** - Authentication setup and configuration
+- **`database/schema.ts`** - Drizzle ORM database schema
 
 ## 🛡️ Security Features
 
-- **Input Validation** - All user inputs are validated and sanitized
-- **Rate Limiting** - Protection against spam and abuse
+- **Advanced Message Sanitization** - DOMPurify with custom chat-safe configurations
+- **XSS Protection** - Multi-layer protection against cross-site scripting
+- **Input Validation** - Comprehensive validation with Zod schemas
+- **Message Filtering** - Suspicious content detection and filtering
+- **Username Sanitization** - Safe username handling with character restrictions
+- **Authentication** - Secure JWT sessions with better-auth
 - **CSRF Protection** - Cross-site request forgery protection
-- **Secure Headers** - Security headers for production deployment
-- **Authentication** - Secure JWT sessions with auto-refresh
+- **Secure Headers** - Production security headers and policies
 
 ## 📊 Monitoring & Logging
 
-- **Structured Logging** - Comprehensive logging for debugging
+- **Structured Logging** - Production-ready logging with worker context
+- **Observability** - Cloudflare Workers observability integration
 - **Performance Metrics** - Request timing and error tracking
 - **Security Events** - Authentication and security event logging
-- **Cloudflare Analytics** - Built-in traffic and performance analytics
+- **Real-time Debugging** - WebSocket connection and message flow tracking
+- **Cloudflare Analytics** - Built-in traffic, performance, and security analytics
 
 ## 🤝 Contributing
 
