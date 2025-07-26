@@ -1,5 +1,9 @@
 import { DurableObject } from 'cloudflare:workers';
-import { sanitizeChatMessage, sanitizeUsername, containsSuspiciousContent } from '../lib/sanitizer';
+import {
+  sanitizeChatMessage,
+  sanitizeUsername,
+  containsSuspiciousContent,
+} from '../lib/sanitizer';
 
 interface ChatMessage {
   id: string;
@@ -63,12 +67,18 @@ export class Facet extends DurableObject {
     // Get user info from query params
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId') || 'anonymous';
-    const rawUsername = url.searchParams.get('username') || `User${Math.floor(Math.random() * 1000)}`;
+    const rawUsername =
+      url.searchParams.get('username') ||
+      `User${Math.floor(Math.random() * 1000)}`;
     const username = sanitizeUsername(rawUsername); // Sanitize username
 
     // Accept the WebSocket with hibernation using tags for metadata
     // Tags format: ["userId:value", "username:value", "joinedAt:timestamp"]
-    const tags = [`userId:${userId}`, `username:${username}`, `joinedAt:${Date.now()}`];
+    const tags = [
+      `userId:${userId}`,
+      `username:${username}`,
+      `joinedAt:${Date.now()}`,
+    ];
 
     this.ctx.acceptWebSocket(server, tags);
 
@@ -109,7 +119,10 @@ export class Facet extends DurableObject {
   }
 
   // WebSocket Hibernation handlers
-  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+  async webSocketMessage(
+    ws: WebSocket,
+    message: string | ArrayBuffer
+  ): Promise<void> {
     try {
       const data = JSON.parse(message as string);
       const tags = this.ctx.getTags(ws);
@@ -120,11 +133,13 @@ export class Facet extends DurableObject {
 
       // Check rate limit for this user
       const rateLimitResult = this.checkRateLimit(userId);
-      
+
       if (!rateLimitResult.allowed) {
         const blockedUntil = rateLimitResult.blockedUntil;
-        const remainingTime = blockedUntil ? Math.ceil((blockedUntil - Date.now()) / 1000) : 0;
-        
+        const remainingTime = blockedUntil
+          ? Math.ceil((blockedUntil - Date.now()) / 1000)
+          : 0;
+
         this.sendToSocket(ws, {
           type: 'rate_limit_exceeded',
           message: `Rate limit exceeded. You are temporarily blocked for ${remainingTime} seconds.`,
@@ -143,7 +158,8 @@ export class Facet extends DurableObject {
           if (containsSuspiciousContent(rawMessage)) {
             this.sendToSocket(ws, {
               type: 'error',
-              message: 'Message contains potentially harmful content and was blocked.',
+              message:
+                'Message contains potentially harmful content and was blocked.',
             });
             return;
           }
@@ -184,7 +200,12 @@ export class Facet extends DurableObject {
     }
   }
 
-  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void> {
+  async webSocketClose(
+    ws: WebSocket,
+    _code: number,
+    _reason: string,
+    _wasClean: boolean
+  ): Promise<void> {
     const tags = this.ctx.getTags(ws);
     const userId = this.getTagValue(tags, 'userId') || 'anonymous';
     const username = this.getTagValue(tags, 'username') || 'Anonymous';
@@ -214,7 +235,11 @@ export class Facet extends DurableObject {
     return tag ? tag.split(':', 2)[1] : null;
   }
 
-  private checkRateLimit(userId: string): { allowed: boolean; remainingTokens?: number; blockedUntil?: number } {
+  private checkRateLimit(userId: string): {
+    allowed: boolean;
+    remainingTokens?: number;
+    blockedUntil?: number;
+  } {
     const now = Date.now();
     const userLimit = this.rateLimitMap.get(userId);
 
@@ -223,7 +248,10 @@ export class Facet extends DurableObject {
         tokens: this.rateLimitConfig.maxRequests - 1,
         lastRefill: now,
       });
-      return { allowed: true, remainingTokens: this.rateLimitConfig.maxRequests - 1 };
+      return {
+        allowed: true,
+        remainingTokens: this.rateLimitConfig.maxRequests - 1,
+      };
     }
 
     if (userLimit.blockedUntil && now < userLimit.blockedUntil) {
@@ -237,10 +265,16 @@ export class Facet extends DurableObject {
     }
 
     const timePassed = now - userLimit.lastRefill;
-    const tokensToAdd = Math.floor(timePassed / (this.rateLimitConfig.windowMs / this.rateLimitConfig.maxRequests));
-    
+    const tokensToAdd = Math.floor(
+      timePassed /
+        (this.rateLimitConfig.windowMs / this.rateLimitConfig.maxRequests)
+    );
+
     if (tokensToAdd > 0) {
-      userLimit.tokens = Math.min(this.rateLimitConfig.maxRequests, userLimit.tokens + tokensToAdd);
+      userLimit.tokens = Math.min(
+        this.rateLimitConfig.maxRequests,
+        userLimit.tokens + tokensToAdd
+      );
       userLimit.lastRefill = now;
     }
 

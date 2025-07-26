@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { signIn, signUp, signOut, useSession } from '../../lib/auth/better-auth-client';
+import { signIn, signUp, useSession } from '../../lib/auth/better-auth-client';
 
 export function AuthForm() {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const { data: sessionData, isPending, error: sessionError, refetch } = useSession();
+  const { data: sessionData, isPending, refetch } = useSession();
 
   // Redirect to home page if user is logged in
   useEffect(() => {
@@ -45,7 +45,9 @@ export function AuthForm() {
             console.log('Registration successful, redirecting to home...');
             navigate('/');
           } else if (result.error) {
-            setError(result.error.message || 'Registration failed. Please try again.');
+            setError(
+              result.error.message || 'Registration failed. Please try again.'
+            );
           }
         }
       } else {
@@ -61,7 +63,10 @@ export function AuthForm() {
             console.log('Login successful, redirecting to home...');
             navigate('/');
           } else if (result.error) {
-            setError(result.error.message || 'Login failed. Please check your credentials.');
+            setError(
+              result.error.message ||
+                'Login failed. Please check your credentials.'
+            );
           }
         }
       }
@@ -117,7 +122,9 @@ export function AuthForm() {
           <button
             onClick={() => handleModeChange('login')}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-              mode === 'login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              mode === 'login'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             Sign In
@@ -125,7 +132,9 @@ export function AuthForm() {
           <button
             onClick={() => handleModeChange('register')}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
-              mode === 'register' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              mode === 'register'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             Create Account
@@ -137,7 +146,12 @@ export function AuthForm() {
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
           <div className="flex items-center">
-            <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5 text-red-500 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -154,8 +168,18 @@ export function AuthForm() {
       {success && (
         <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
           <div className="flex items-center">
-            <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-5 h-5 text-green-500 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             <p className="text-sm text-green-700">{success}</p>
           </div>
@@ -166,7 +190,10 @@ export function AuthForm() {
       <form onSubmit={handleSubmit} className="space-y-5">
         {mode === 'register' && (
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Full Name
             </label>
             <input
@@ -183,7 +210,10 @@ export function AuthForm() {
         )}
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Email Address
           </label>
           <input
@@ -199,7 +229,10 @@ export function AuthForm() {
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Password
           </label>
           <input
@@ -209,7 +242,11 @@ export function AuthForm() {
             value={formData.password}
             onChange={handleInputChange}
             required
-            placeholder={mode === 'register' ? 'Choose a password (min 6 chars)' : 'Enter your password'}
+            placeholder={
+              mode === 'register'
+                ? 'Choose a password (min 6 chars)'
+                : 'Enter your password'
+            }
             minLength={mode === 'register' ? 6 : 1}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           />
@@ -223,8 +260,8 @@ export function AuthForm() {
           {isLoading
             ? `${mode === 'register' ? 'Creating Account' : 'Signing In'}...`
             : mode === 'register'
-            ? 'Create Account'
-            : 'Sign In'}
+              ? 'Create Account'
+              : 'Sign In'}
         </button>
       </form>
 
@@ -232,7 +269,8 @@ export function AuthForm() {
       {mode === 'register' && (
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-700 text-center">
-            Creating an account allows you to keep your username and preferences across sessions
+            Creating an account allows you to keep your username and preferences
+            across sessions
           </p>
         </div>
       )}

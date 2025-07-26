@@ -11,7 +11,7 @@ if (typeof window === 'undefined') {
     purify = DOMPurify(window as any);
   } catch (error) {
     // Fallback if JSDOM is not available
-    console.warn('JSDOM not available, using basic sanitization');
+    console.warn('JSDOM not available, using basic sanitization', error);
     purify = {
       sanitize: (dirty: string) => dirty.replace(/<[^>]*>/g, ''), // Basic HTML strip
     } as any;
