@@ -1,6 +1,6 @@
-# 💬 Edge Chat
+# 💬 Real-Time Chat
 
-A modern, secure real-time messaging application built with React Router v7, Cloudflare Workers, and Durable Objects. Deployed at [edgechat.io](https://edgechat.io).
+A modern, secure real-time messaging application built with React Router v7, Cloudflare Workers, and Durable Objects.
 
 ## ✨ Features
 
@@ -50,7 +50,7 @@ A modern, secure real-time messaging application built with React Router v7, Clo
 
    ```bash
    git clone <your-repo-url>
-   cd edge-chat
+   cd chatting
    npm install
    ```
 
@@ -299,5 +299,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Built with ❤️ using React Router v7, Cloudflare Workers, and modern web technologies.
-
-🌐 **Visit Edge Chat at [edgechat.io](https://edgechat.io)**
